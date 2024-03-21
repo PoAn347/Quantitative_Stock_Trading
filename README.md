@@ -29,6 +29,7 @@ The script includes a GridOptimization class to optimize grid trading strategy p
 Traders can use brute-force optimization to iterate over parameter combinations and evaluate profitability, enhancing the effectiveness of their trading strategies.
 
 Usage:
+
 Data Retrieval:
 
 Users can specify the desired time period for stock data retrieval using the data_year_period function.
@@ -44,13 +45,16 @@ The GridTradeStrategy class facilitates the execution of a grid trading strategy
 Parameter Optimization:
 
 Traders can optimize grid trading strategy parameters using the GridOptimization class, enhancing the profitability of their trading strategies.
+
 Conclusion:
+
 This Python script provides a powerful toolkit for stock analysis, grid trading strategy execution, and parameter optimization. Whether you're a seasoned trader or a novice investor, the script offers valuable tools and insights to navigate today's complex financial markets effectively. By leveraging advanced Python programming techniques and financial analysis methodologies, traders can make informed decisions, automate trading strategies, and optimize parameters for maximum profitability.
 
 For detailed instructions on how to use and customize the script, refer to the inline comments and function documentation provided within the code. Additionally, the script can be extended and modified to accommodate specific trading preferences and requirements.
  
  
- 
+Example:
+
 In the folder "View in Jupyter Notebook," we illustrate the application of financial data analysis techniques using the latest three-month NVIDIA stock price as an example. The demonstration showcases how these techniques can assess stock performance and simulate future outcomes. Here's a breakdown of the process:
 
 Calculating Return Rate and Volatility:
