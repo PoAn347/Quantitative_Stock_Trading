@@ -1,4 +1,4 @@
-Stock Analysis, Grid Trading, and Optimization
+
 Introduction
 This Python script offers a comprehensive toolkit for stock analysis, incorporating grid trading strategy execution, Monte Carlo simulation, and parameter optimization. In today's dynamic financial markets, traders and investors require sophisticated tools to analyze stock data, devise trading strategies, and optimize their trading parameters for maximum profitability. This script aims to address these needs by providing a versatile and customizable solution for stock analysis and trading strategy implementation.
 
