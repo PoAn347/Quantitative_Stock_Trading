@@ -4,10 +4,12 @@ Introduction
 This Python script offers a comprehensive toolkit for stock analysis, incorporating grid trading strategy execution, Monte Carlo simulation, and parameter optimization. In today's dynamic financial markets, traders and investors require sophisticated tools to analyze stock data, devise trading strategies, and optimize their trading parameters for maximum profitability. This script aims to address these needs by providing a versatile and customizable solution for stock analysis and trading strategy implementation.
 
 Key Features:
+
 Data Retrieval and Visualization:
 
 The script leverages the Yahoo Finance API (yfinance) to fetch historical stock data for analysis.
 It includes functions to visualize stock data using candlestick charts, aiding in the interpretation of price trends and patterns.
+
 Data Analysis:
 
 Using the Pandas library, the script performs in-depth data analysis, calculating statistical metrics such as price volatility, daily returns, and annualized return volatility.
@@ -25,11 +27,13 @@ Grid Optimization:
 
 The script includes a GridOptimization class to optimize grid trading strategy parameters based on historical data.
 Traders can use brute-force optimization to iterate over parameter combinations and evaluate profitability, enhancing the effectiveness of their trading strategies.
+
 Usage:
 Data Retrieval:
 
 Users can specify the desired time period for stock data retrieval using the data_year_period function.
 Historical stock data can be fetched from the Yahoo Finance API (yfinance) and visualized using the draw function.
+
 Data Analysis:
 
 Traders can analyze historical stock data using the StockAnalysis class to calculate statistical metrics and gain insights into market trends.
