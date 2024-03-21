@@ -8,9 +8,7 @@ import mplfinance as mpf
 import pandas_ta as pta
 import yfinance as yf
 from typing import Tuple
-
 from datetime import date, timedelta
-
 
 
 def data_year_period(yearnum: int) -> Tuple[str,str]:
@@ -21,15 +19,21 @@ def data_year_period(yearnum: int) -> Tuple[str,str]:
     today_str = today.strftime("%Y-%m-%d")
     return yes_str, today_str
 
-
 def getstock(stocktick, startday, endday):
     df = yf.download(stocktick,start = startday ,end=endday)
     df_adj = df.reindex(columns=[ 'Open', 'High', 'Low','Close'])#.rename(columns={"Adj Close":"Close"})
-    return df_adj
+    return df_adj 
 
 def draw(data):
         mpf.plot(data,type='candle')
         return 0
+
+def splitdata(original_data_df, split_portion = 0.2):
+    length = len(original_data_df)
+    test_length = int(length * split_portion)
+    train_df = original_data_df.iloc[:-test_length]
+    test_df = original_data_df.iloc[-test_length:]
+    return train_df, test_df 
 
     
 class StockAnalysis:
@@ -91,7 +95,7 @@ class StockAnalysis:
         print("25th percentile:", percentile)
         return 0
     
-    def days_price_volitility(self, in_days:int , n:int )-> list:
+    def days_price_volitility(self, in_days:int , n:int = 0)-> list:
 
         result = []
         #define data range:
@@ -113,8 +117,8 @@ class StockAnalysis:
         result.sort()
 
         # Calculate the percentile
-        percentile = np.percentile(result, 75)
-        print("75th percentile:", percentile)
+        #percentile = np.percentile(result, 75)
+        #print("75th percentile:", percentile)
 
         # Calculate summary statistics
         mean = np.mean(result)
@@ -131,42 +135,44 @@ class StockAnalysis:
         
         return result
     
-    def daily_return_volatility(self, n: int) -> Tuple[float, float]:
+    def daily_return_volatility(self, n: int = 0) -> Tuple[float, float]:
 
         # this method is for simple monte carlo used
         temp_close_price = self.close_price[-n:]
-        returns = [price / temp_close_price[i - 1] - 1 for i, price in enumerate(temp_close_price)][1:]
-        #mean of daily return
-        daily_mean_return = round(np.mean(returns),6)
-        # daily volatility
-        daily_volatility = round(np.std(returns), 6)
 
+        #daily returns
+        daily_returns = np.diff(temp_close_price) / temp_close_price[:-1]
+        #daily means
+        daily_mean_return = np.mean(daily_returns)
+
+        #daily variance of returns (There is no NaN values in the numpy array)
+        daily_variance = ((daily_returns - daily_mean_return)**2).sum() / (len(daily_returns) -1)
+        daily_volatility = daily_variance**.5
 
         return daily_mean_return, daily_volatility
     
-    def annualized_return_volatility(self, n: int) -> Tuple[float, float]:
+    def annualized_return_volatility(self, n: int = 0) -> Tuple[float, float]:
+
+        # this method is for simple monte carlo used
         temp_close_price = self.close_price[-n:]
-        #calculate log(pt/pt-1)
-        returns = []
-        for p in range(1,n):
-            returns.append(np.log(temp_close_price[p]/temp_close_price[p-1]))
-        #returns = np.log(temp_close_price[1:] / temp_close_price[:-1])
-        
-        # Calculate μ and σ
-        mu = np.mean(returns)
-        
-        sigma = np.std(returns)
+
+        #daily returns
+        daily_returns = np.diff(temp_close_price) / temp_close_price[:-1]
+        #daily means
+        daily_mean_return = np.mean(daily_returns)
+
+        #daily variance of returns (There is no NaN values in the numpy array)
+        daily_variance = ((daily_returns - daily_mean_return)**2).sum() / (len(daily_returns) -1)
+        daily_volatility = daily_variance**.5
 
         # Assuming 252 trading days in a year for annualization
         trading_days_per_year = 252
 
         # Annualize μ and σ
-        annualized_mu = mu * trading_days_per_year
-        annualized_sigma = sigma * np.sqrt(trading_days_per_year)
+        annualized_mu = (1 + daily_mean_return) ** trading_days_per_year - 1
+        annualized_sigma = daily_volatility * np.sqrt(trading_days_per_year)
 
         return annualized_mu, annualized_sigma
-
-
     
 class MonteCarloStimulate:
     def __init__(self, dr, dv):
@@ -175,24 +181,26 @@ class MonteCarloStimulate:
         self.annualized_return = (1 + dr)**252 - 1
         self.annualized_volatility = 252**0.5 * dv
 
-    def simple_monte_carlo(self,last_price,T = 252, simulations_num = 1000):
+    def simple_monte_carlo(self,last_price,T_years = 1, simulations_num = 1000):
+
         df = pd.DataFrame()
         last_price_list = []
+        T_days = 252 * T_years
+
         for x in range(simulations_num):
             count = 0
             price_list = []
             price = last_price * (1 + np.random.normal(0, self.daily_volatility))
             price_list.append(price)
             
-            for y in range(T):
-                if count == T-1:
+            for y in range(T_days):
+                if count == T_days-1:
                     break
                 price = price_list[count]* (1 + np.random.normal(0, self.daily_volatility))
                 price_list.append(price)
                 count += 1
 
             df = pd.concat([df,pd.Series(price_list)],axis = 1)
-            #df[x] = price_list
             last_price_list.append(price_list[-1])
 
             if x %500 ==0:
@@ -201,7 +209,7 @@ class MonteCarloStimulate:
         print("Finish Simulation!")
                 
         fig = plt.figure()
-        fig.suptitle("Monte Carlo Simulation: MSFT")
+        fig.suptitle("Simple Monte Carlo Simulation with" +"mu: "+ str(round(self.annualized_return,2)) +" sigma: " + str(round(self.annualized_volatility,2)))
         plt.plot(df)
         plt.xlabel('Day')
         plt.ylabel('Price')
@@ -215,33 +223,30 @@ class MonteCarloStimulate:
         plt.axvline(np.percentile(last_price_list,5), color='r', linestyle='dashed', linewidth=2)
         plt.axvline(np.percentile(last_price_list,95), color='r', linestyle='dashed', linewidth=2)
         plt.show()
-        
 
-
-
-    def Geometric_monte_carlo(self, s0, mu, sigma, T_years = 1, dt = 1/ 252, simulate_num = 1000):
+    def Geometric_monte_carlo(self, s0, T_years = 1, dt = 1/ 252, simulations_num = 1000):
 
         print("Geometric Monte Carlo result")
         paths = []
         last_price_list = []
 
-        for x in range(simulate_num):
+        for x in range(simulations_num):
 
             prices=[s0]
             time = 0
 
             while(time+dt <= T_years):
-                prices.append(prices[-1]*np.exp((mu - 0.5*(sigma**2))*dt + sigma*np.random.normal(0, np.sqrt(dt))))
+                prices.append(prices[-1]*np.exp((self.annualized_return - 0.5*(self.annualized_volatility**2))*dt + self.annualized_volatility*np.random.normal(0, np.sqrt(dt))))
                 time += dt
             if T_years - (time) > 0:
-                prices.append(prices[-1]*np.exp((mu - 0.5*(sigma**2))*(T_years-time) + sigma*np.random.normal(0, np.sqrt(T_years-time))))
+                prices.append(prices[-1]*np.exp((self.annualized_return - 0.5*(self.annualized_volatility**2))*(T_years-time) + self.annualized_volatility*np.random.normal(0, np.sqrt(T_years-time))))
 
             paths.append(prices)
             last_price_list.append(round(prices[-1],2))
 
 
         fig = plt.figure()
-        fig.suptitle("Monte Carlo Simulation: GBM with" +"mu: "+ str(round(mu,2)) +" sigma: " + str(round(sigma,2)) )
+        fig.suptitle("Monte Carlo Simulation: GBM with" +"mu: "+ str(round(self.annualized_return,2)) +" sigma: " + str(round(self.annualized_volatility,2)) )
         plt.xlabel('Day')
         plt.ylabel('Price')
 
@@ -259,8 +264,7 @@ class MonteCarloStimulate:
         plt.axvline(np.percentile(last_price_list,5), color='r', linestyle='dashed', linewidth=2)
         plt.axvline(np.percentile(last_price_list,95), color='r', linestyle='dashed', linewidth=2)
         plt.show()
-
-        
+   
 class GridTradeStrategy:
 
     def __init__(self, buylowest, sellhighest, line_number, capital, commission = 0.001425, taxrate = 0.003):
@@ -335,9 +339,9 @@ class GridTradeStrategy:
         df = pd.DataFrame(prices)
 
         ## see how the price pass each gridline
-        passing_gridline = [ self.findstartposition(prices[0]) ]
+        passing_gridline = [ self.findstartposition(prices.iloc[0]) ]
         for i in range(1,len(df)):
-            passing_gridline.append(self.findgridline(df.Close[i-1],df.Close[i]))
+            passing_gridline.append(self.findgridline(df.Close.iloc[i-1],df.Close.iloc[i]))
         df['Passing_Price'] = passing_gridline
         
         #print(df[df.Passing_Price != 0])
@@ -421,14 +425,13 @@ class GridTradeStrategy:
 
         fig = plt.figure(figsize=(12,8))
         fig.suptitle("Asset under GridStratey with\n" +"lowbound: "+ str(self.buylowest) +", highbound: " +  \
-                     str(self.sellhighest) +", gridline#: " + str(self.linenum) + "\n Asset return:" +str(round(self.dfresult.Asset[-2]/self.capital - 1,4)*100) + "%" )
+                     str(self.sellhighest) +", gridline#: " + str(self.linenum) + "\n Asset return:" +str(round(self.dfresult.Asset.iloc[-2]/self.capital - 1,4)*100) + "%" )
         plt.xlabel('Day')
         plt.ylabel('Asset')
 
         plt.plot(self.dfresult.Asset)
         plt.axhline( y = self.capital, color = 'r', linestyle = '--')
         plt.show()
-    
 
 class GridOptimization:
     def __init__(self, gridline_range: tuple, lowbuy_range: tuple, highsell_range: tuple ,testprices: pd.DataFrame()):
@@ -451,7 +454,7 @@ class GridOptimization:
                 for sell in self.highsell_range:
                     temp = GridTradeStrategy(buy, sell, l, 1000000).run(self.testprices)
 
-                    profit = temp.Asset[-2]/1000000 - 1 # -2 because sometimes the -1 is nan due to no data 
+                    profit = temp.Asset.iloc[-2]/1000000 - 1 # -2 because sometimes the -1 is nan due to no data 
                     gridline.append(l)
                     lowbound.append(buy)
                     highbound.append(sell)
@@ -467,66 +470,64 @@ class GridOptimization:
 
 
         return df
-        
-
-        
 
 
-            
 
 def main():
 
-    timesize = 2
+    #Set up time period for the stock price
+    timesize = 1
 
+    #Using the date for today
     startday, endday = data_year_period(timesize)
+
+    #Choosing the stock tick
     data = getstock("DIS", startday, endday)
-    
-    #draw(data)
 
-    TheStock = StockAnalysis(data[:-100]) # normally, using data [:-100] data has sliced. because the rest of data need to use for grid strategy
-    TheStock.days_price_volitility(10,100)#  first argument is price change in days, second is how many days' data want to use in calculations 
+    #Visualization
+    draw(data)
 
-    
-    lastestprice = TheStock.close_price[-100] # should be training end data records
-    (r,v) = TheStock.daily_return_volatility(100) # how many days' data want to involved in calcuation. Notice it should count date from sliced data.
-    (annual_r, annual_v) = TheStock.annualized_return_volatility(100)
+    #Split data into training and testing data, 80% as training data and 20% as testing data
+    ( train_data, test_data ) = splitdata(data)
+
+    #Using training data to analyze the percentile of price change in 10 days. (The days number can be changed)
+    TheStock = StockAnalysis(train_data) 
+    TheStock.days_price_volitility(10,100) # In 10 days duration, using only last 100 from the above "train_data" 
+
+    #Get the annual return and volitiliy
+    (r,v) = TheStock.daily_return_volatility()
+    (annual_r, annual_v) = TheStock.annualized_return_volatility()
     print("Daily Mean Return:",r)
     print("Daily Volatility:",v)
     print("Annual Mean Return:",annual_r)
-    print("Annual Volatility:",annual_v)
-    TheStock_simulate = MonteCarloStimulate(r,v)
+    print("Annual Volitility:",annual_v)
 
-    ##simple monte carlo
-    TheStock_simulate.simple_monte_carlo(lastestprice,T = 100, simulations_num = 5000)
+    
+    #Monete Carlo Simulation
+    TheStock_simulate = MonteCarloStimulate(r,v)
+    
+    startprice = test_data.Close.iloc[0]
+
+    ##Simple Monte carlo
+    TheStock_simulate.simple_monte_carlo(startprice, T_years = 1, simulations_num = 5000)
     
     ##Geometric Brownian Motion
-    #TheStock_simulate.Geometric_monte_carlo(lastestprice,annual_r,annual_v,T_years = 1/4)
+    TheStock_simulate.Geometric_monte_carlo(startprice, T_years = 1, simulations_num = 5000)
 
+    #Grid Trade
+    StockGrid = GridTradeStrategy(60, 120, 11, 10000)
     
-    StockGrid = GridTradeStrategy(63,102, 40, 5000)
-    
-    StockDf = StockGrid.run(data.Close[-100:])# the sliced data is for grid strategy backtesting
+    StockDf = StockGrid.run(test_data.Close)
     
     print(StockDf)
     StockGrid.plotresultdf()
 
-    
+    #Optimization Strategy by observating the top return parameters set
 
-    
-
-    
-    print("Holding Strategy")
-    print("buy: ", round(data.Close[-100],2) )
-    print("sell: ", round(data.Close[-1],2) )
-    print(str(round((data.Close[-1]/data.Close[-100] - 1),4)*100 ) + "%")
-    
-
-    
-    '''
-    opt = GridOptimization((5,20),(10,16),(30,40),data.Close[-100:])
+    opt = GridOptimization(gridline_range = (5,20), lowbuy_range = (60,70), highsell_range  = (115, 125), testprices = test_data.Close)
     dfresult = opt.optimize()
     print(dfresult)
-    top100 = dfresult[:]
+    top100 = dfresult[:100]
 
     plt.scatter(top100.Gridline, top100.Profit, marker='o', color='red', s=100, alpha=0.8)
     plt.xlabel('Lines number')
@@ -555,10 +556,9 @@ def main():
     plt.title('Scatter Plot')
     plt.grid(True)
     plt.show()
-    
-
+   
     return 0
-    '''
+    
 
 if __name__ == '__main__':
     main()
